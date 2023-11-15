@@ -4,55 +4,47 @@ import re
 country_code = ['7', '8']
 region_code_first_number = ['1', '3', '4', '5', '6', '7', '8', '9']
 
-def if_phone(test_number):
+def is_valid_phone(test_number):
   result_number = ''
   for digit in test_number:
     if digit.isdigit():
       result_number+=digit
 
-  match len(result_number):
-    case 7:
-      if result_number[0] in region_code_first_number:
-        print('8495', result_number, sep = '')
-    case 11:
-      if (
-          result_number[0] in country_code 
-          and result_number[1] in region_code_first_number
-         ):
-        print('8', result_number[1:], sep = '')
+  if (((len(result_number) == 7) and (result_number[0] in region_code_first_number)) or 
+      ((len(result_number) == 11) and (result_number[0] in country_code) and (result_number[1] in region_code_first_number))):
+      return True
 
-  return
+  return False
 
-def connection_successful(recall, url):
-  if recall != 200:
-    print('Failure to connect to: ', url, '. \nError code: ', recall, sep = '')
-    return False
-  else:
-    return True
+def format_phone(test_number):
+  result_number = ''
+  for digit in test_number:
+    if digit.isdigit():
+      result_number+=digit
 
-def parse_one(url):
+  if len(result_number) <= 7:
+    return '8495' + result_number
+  
+  return '8' + result_number[1:]
+
+def is_connection_successful(recall, url):
+  return recall == 200
+
+def parse(url):
   page = requests.get(url)
 
-  if not connection_successful(page.status_code, url): return
+  if not is_connection_successful(page.status_code, url):
+    print('Failure to connect to: ', url, '. \nError code: ', page.status_code, sep = '')
+    return
 
-  is_found = False
-  phones_found = set(re.findall(r'[\+7|8]?[\- ]?[\(]?[\d]{3}[\)]?[\- ]?[\d\- ]{7,10}', page.text))
-
-  print("\tNumbers found in ", url, ':', sep = '')
-  for phone in phones_found:
-    if_phone(phone)
-    is_found = True
-
-  if not is_found:
-    print("\tNo numbers was found in ", url, ".", sep = '')
+  phones_found = map(format_phone, re.findall(r'[\+7|8]?[\- ]?[\(]?[\d]{3}[\)]?[\- ]?[\d\- ]{7,10}', page.text))
+  phones_found = {phone for phone in phones_found if is_valid_phone(phone)}
   
-  print("\tProcess was finished succesfully!")
-  return
+  #сначала форматировать все, засунуть в множество, проверенные вывести
+  
+  return phones_found
 
-def parse_url(url: list):
-  for item in url:
-    parse_one(item)
+#asserts на два адреса ['https://hands.ru/company/about', 'https://repetitors.info']
 
-#TEST_URLS = ['https://hands.ru/company/about', 'https://repetitors.info']
-
-#parse_url(TEST_URLS) 
+assert parse('https://hands.ru/company/about') == {'84951370720'}, "Ошибка в поиске по https://hands.ru/company/about"
+assert parse('https://repetitors.info') == {'84955405676'}, "Ошибка в поиске по https://repetitors.info"
